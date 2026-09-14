@@ -1,0 +1,9 @@
+# Secrets — never commit the filled-in version
+secrets.env
+
+# Local log file
+bot.log
+
+# Python
+__pycache__/
+*.pyc

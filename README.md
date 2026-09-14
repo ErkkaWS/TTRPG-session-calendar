@@ -1,4 +1,4 @@
-# 100% vibe coded with Claude sonnnet 5: TTRPG Session Scheduler
+# 100% vibe coded: TTRPG Session Scheduler
 
 Fighting against the TTRPG curse: a publicly shared, login-free
 availability calendar for TTRPG groups, including a Discord server
