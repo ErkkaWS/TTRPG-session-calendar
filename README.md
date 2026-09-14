@@ -1,4 +1,4 @@
-# 100% vibe coded: TTRPG Session Scheduler
+# 100% vibe coded with Claude sonnnet 5: TTRPG Session Scheduler
 
 Fighting against the TTRPG curse: a publicly shared, login-free
 availability calendar for TTRPG groups, including a Discord server
@@ -6,11 +6,21 @@ bot that "motivates" players to mark their availability in the
 calendar and, of course, **ANNOUNCES** when a common session date is
 found!
 
+> **Note:** every Firebase and hosting URL in this repo is a
+> placeholder. The app is designed so that no login is required to
+> use it, which means the URL itself is the only thing keeping it
+> private — see [Configuration](#configuration) to fill in your own
+> values.
+
+---
+
 ## Built from
 
-- **Frontend:** a single static HTML file (`kalenteri.html`) — no
+- **Frontend:** a single static HTML file (`calendar.html`) — no
   framework, no build step. Vanilla JS + CSS, Firebase JS SDK loaded
-  via `<script>` tag.
+  via `<script>` tag. All the campaign-specific text (name, intro
+  title, date range) lives in one clearly marked config block near
+  the top of the `<script>` section.
 - **Database:** Firebase Realtime Database — free tier, open
   read/write rules (no accounts to check against, by design).
 - **Hosting:** any static host works (Netlify, Vercel, GitHub Pages,
@@ -65,17 +75,39 @@ calendar page when it runs. Every 5 minutes it:
    amount of state (last notified time, which dates have already
    been announced) so it doesn't repeat itself
 
+## Customizing it for your group
 
-> **Note:** every Firebase and hosting URL in this repo is
-> `[REDACTED]`. The app is designed so that no login is required to
-> use it, which means the URLs themselves are the only thing keeping
-> it private — see [Configuration](#configuration) to fill in your
-> own values.
+Everything you're likely to want to change lives in two clearly
+marked blocks:
+
+**`calendar.html`**, near the top of the `<script>` tag:
+```javascript
+const CAMPAIGN_NAME = "YOUR CAMPAIGN NAME HERE";
+const INTRO_TITLE = "YOUR GAME TITLE";
+const INTRO_SUBTITLE = "YOUR EDITION / YEAR";
+const START_YEAR = 2026;
+const START_MONTH = 9;       // 0 = January ... 11 = December
+const NUMBER_OF_MONTHS = 15;
+```
+
+**`check.py`** / **`check.js`**, near the top of the file:
+```python
+CALENDAR_LINK = 'https://YOUR_SITE.netlify.app/'
+COOLDOWN_MS = 15 * 60 * 1000
+REMINDER_INTERVAL_MS = 3 * 24 * 60 * 60 * 1000
+MIN_FREE_FOR_RECAP = 4
+ANNOUNCE_THRESHOLD = 6
+ANNOUNCEMENT_MESSAGE = "Heads up — we found a shared session date! ..."
+```
+
+Both files also need the matching `firebaseConfig` / `FIREBASE_URL`
+for your own Firebase project (see [Configuration](#configuration)).
 
 ## Current implementation spec
 
 This reflects the exact settings and message logic as last tested
-and deployed.
+and deployed. All of these are just the *default* values of the
+constants above — change them freely.
 
 **Scheduling:**
 - Check script runs every **5 minutes** via `cron`
@@ -93,14 +125,14 @@ and deployed.
 
 **Recap thresholds** (a "candidate day" = at least this many people
 marked free, and nobody marked busy on it):
-- `MIN_VAPAA_RECAP = 4` — minimum to count as a candidate at all
+- `MIN_FREE_FOR_RECAP = 4` — minimum to count as a candidate at all
 - **0 candidate days:** light nudge message only
-- **1+ candidate days, best day < 6 people:** full recap with a
-  ranked list of candidate days
-- **Best day ≥ 6 people:** nothing posted to the schedule channel;
-  instead a one-time announcement goes to the announcement channel
-  (only once per date — re-editing the calendar afterward won't
-  repeat it)
+- **1+ candidate days, best day below the announce threshold:** full
+  recap with a ranked list of candidate days
+- **Best day ≥ `ANNOUNCE_THRESHOLD` (default 6):** nothing posted to
+  the schedule channel; instead a one-time announcement goes to the
+  announcement channel (only once per date — re-editing the calendar
+  afterward won't repeat it)
 
 **Message texts** (channel in brackets):
 
@@ -126,8 +158,7 @@ Possible session days: <count>
 ```
 
 ```
-[announce] Heads up — we have a shared session date!
-<custom celebratory text>
+[announce] <your ANNOUNCEMENT_MESSAGE>
 <calendar link>
 ```
 
@@ -135,14 +166,15 @@ Possible session days: <count>
 
 | File | What it is |
 |---|---|
-| `kalenteri.html` | The whole calendar app, single file |
+| `calendar.html` | The whole calendar app, single file |
 | `check.py` | Check script for Python 3 (Raspberry Pi or any Linux box) |
 | `check.js` | Same logic in Node.js (e.g. for GitHub Actions) |
-| `check.yml` | GitHub Actions workflow (see reliability note below) |
+| `.github/workflows/check.yml` | GitHub Actions workflow (see reliability note below) |
 | `run.sh` | Startup wrapper — loads secrets, then runs `check.py` |
 | `secrets.env.example` | Template for the two webhook URLs — copy to `secrets.env`, never commit the filled-in version |
+| `logrotate.conf` | Optional logrotate config to keep the local log file small long-term |
 
-`.gitignore` excludes `secrets.env` (real secrets) and `loki.txt`
+`.gitignore` excludes `secrets.env` (real secrets) and `bot.log`
 (local log) — only `secrets.env.example` belongs in the repo.
 
 ## Configuration
@@ -161,14 +193,18 @@ Possible session days: <count>
      }
    }
    ```
+   Firebase's default "test mode" rules expire after 30 days — use
+   the permanent rule above for real use.
 4. Register a web app, copy the `firebaseConfig` values
 5. Paste them into the `firebaseConfig` block at the top of
-   `kalenteri.html`
+   `calendar.html`, and set the matching `FIREBASE_URL` in
+   `check.py` / `check.js`
 
 ### 2. Hosting the calendar
 
-Any static host works — `kalenteri.html` is fully self-contained, no
-build step.
+Any static host works — `calendar.html` is fully self-contained, no
+build step. Put the resulting URL into `CALENDAR_LINK` in
+`check.py` / `check.js`.
 
 ### 3. Discord webhooks
 
@@ -190,15 +226,15 @@ crontab -e
 ```
 Add:
 ```
-*/5 * * * * /path/to/run.sh >> /path/to/loki.txt 2>&1
+*/5 * * * * /path/to/run.sh >> /path/to/bot.log 2>&1
 ```
 
 ### Why not GitHub Actions
 
-`check.yml` is included and works, but with a real caveat found
-during testing: GitHub does not guarantee sub-5-minute scheduling,
-and in practice, scheduled runs were sometimes delayed by hours
-during high load — GitHub's own docs acknowledge this ("the
+`.github/workflows/check.yml` is included and works, but with a real
+caveat found during testing: GitHub does not guarantee sub-5-minute
+scheduling, and in practice, scheduled runs were sometimes delayed
+by hours during high load — GitHub's own docs acknowledge this ("the
 schedule event can be delayed... some queued jobs may be dropped").
 Fine for the 3-day reminder, not reliable for timely recaps. A
 dedicated machine with `cron` was far more consistent in testing.
@@ -207,10 +243,12 @@ dedicated machine with `cron` was far more consistent in testing.
 
 - **Firebase silently converts sequential numeric keys into a JSON
   array** instead of an object (e.g. if player names happen to be
-  `"1"`, `"2"`, `"3"`) — `check.py` handles both shapes defensively.
-- **Cloudflare (in front of Discord) rejects default `urllib`
-  requests** with no `User-Agent` header (HTTP 403, Cloudflare error
-  1010) — every request sets an explicit one.
+  `"1"`, `"2"`, `"3"`) — `check.py` handles both shapes defensively
+  (`check.js` doesn't need to — `Object.values()` works on arrays
+  too in JavaScript).
+- **Cloudflare (in front of Discord) rejects default HTTP requests**
+  with no `User-Agent` header (HTTP 403, Cloudflare error 1010) —
+  every request sets an explicit one.
 - **Firebase's "test mode" rules expire after 30 days** — switch to
   the permanent rule above before that happens, or both the
   calendar and the bot stop working with no warning.
