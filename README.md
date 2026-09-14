@@ -1,4 +1,4 @@
-# 100% vibe coded: TTRPG Session Scheduler
+# 100% vibe coded with Claude sonnet5: TTRPG Session Scheduler
 
 Fighting against the TTRPG curse: a publicly shared, login-free
 availability calendar for TTRPG groups, including a Discord server
@@ -11,6 +11,13 @@ found!
 > use it, which means the URL itself is the only thing keeping it
 > private — see [Configuration](#configuration) to fill in your own
 > values.
+
+<table>
+<tr>
+<td><img src="https://github.com/user-attachments/assets/55b680ff-213a-4972-8f7f-36f5a98225e0" width="500"></td>
+<td><img src="https://github.com/user-attachments/assets/3777b15b-e1f2-419d-8228-5177202be737" width="500"></td>
+</tr>
+</table>
 
 ---
 
